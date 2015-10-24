@@ -69,7 +69,7 @@
 				var data = child.val();
 				var newScoreRow = $("<tr>");
 				newScoreRow.append("<td>"+data["barcode"]+"</td>");
-				newScoreRow.append("<td id=titleFor"+data["barcode"]+ ">"+data["title"]+"</td>");
+				newScoreRow.append("<td id=titleFor"+data["barcode"]+ "><a href=" + data["link"] + " target='_blank'>"+data["title"]+"</a></td>");
 				newScoreRow.append($("<td id=authorFor"+data["barcode"]+ ">"+data["author"]+"</td>"));
 				newScoreRow.append($("<td id=publishedFor"+data["barcode"]+ ">"+data["releaseDate"]+"</td>"));
 				newScoreRow.append($("<td id=publisherFor"+data["barcode"]+ ">"+data["publisher"]+"</td>"));
@@ -108,7 +108,7 @@
 												drawer: "",
 												releaseDate: $(data).find( "ItemAttributes" ).find( "PublicationDate" ).text(),
 												publisher: $(data).find( "ItemAttributes" ).find( "Publisher" ).text(),
-												image:""
+												link: $(data).find( "Item" ).find( "DetailPageURL" ).text()
 											});
 							 },
 							 error: function ( jqXHR,textStatus,errorThrown ) {
@@ -139,12 +139,12 @@
 			parameters.sort();
 			var paramString = parameters.join('&');
 
-			var signingKey = "GET\n" + "webservices.amazon.com\n" + "/onca/xml\n" + paramString;
+			var signingKey = "GET\n" + "webservices.amazon.fr\n" + "/onca/xml\n" + paramString;
 
 			var signature = sha256(signingKey,PrivateKey);
 				signature = encodeURIComponent(signature);
 
-			var amazonUrl =  "http://webservices.amazon.com/onca/xml?" + paramString + "&Signature=" + signature;
+			var amazonUrl =  "http://webservices.amazon.fr/onca/xml?" + paramString + "&Signature=" + signature;
 			return amazonUrl;
 		}
 
@@ -161,7 +161,7 @@
 	</div><!-- /header -->
 
 	<div role="main" class="ui-content">
-		<table data-role="table" data-mode="columntoggle" class="ui-responsive" id="bdTekList" name="bdTekList">
+		<table data-role="table" data-mini="true" class="ui-responsive" id="bdTekList" name="bdTekList">
 		  <thead>
 			<tr>
 			  <th data-priority="6">Code barre</th>
