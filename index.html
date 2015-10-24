@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>BD Tek</title>
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+    <script src="lib/firebase/firebase.js"></script>
+	<link rel="stylesheet" href="lib/jquery/jquery.mobile-1.4.5.min.css" />
+	<script src="lib/jquery/jquery-2.1.4.min.js"></script>
+	<script src="lib/jquery/jquery.mobile-1.4.5.min.js"></script>
+	<script src="lib/hmac-sha256.js"></script>
+	<script src="lib/enc-base64-min.js"></script>  
+	<script src="conf.js"></script>
+	<script>
+		myFirebaseRef.onAuth(authDataCallback);
+		var authData = myFirebaseRef.getAuth();
+		var myUserID = "";
+		var htmlForPath = {};
+		
+		if (!authData) {
+			console.log("User is not logged in, poping up !");
+			myFirebaseRef.authWithOAuthPopup("google", function(error, authData) {
+			  if (error) {
+				console.log("Login Failed!", error);
+			  } else {
+				console.log("Authenticated successfully with payload:", authData['uid']);
+			  }
+			});
+		}
+		myUserID = authData['uid'];
+		console.log("User : " + myUserID);
+
+		
+		function authDataCallback(authData) {
+			if (authData) {
+				console.log("User " + authData.uid + " is logged in with " + authData.provider);
+			} else {
+				console.log("User is logged out");
+			}
+		}
+
+		function sha256(stringToSign, secretKey) {
+		  var hex = CryptoJS.HmacSHA256(stringToSign, secretKey);
+		  return hex.toString(CryptoJS.enc.Base64);
+		} 
+
+		function timestamp() {
+			var date = new Date();
+			var y = date.getUTCFullYear().toString();
+			var m = (date.getUTCMonth() + 1).toString();
+			var d = date.getUTCDate().toString();
+			var h = date.getUTCHours().toString();
+			var min = date.getUTCMinutes().toString();
+			var s = date.getUTCSeconds().toString();
+
+			if(m.length < 2) { m = "0" + m; }
+			if(d.length < 2) { d = "0" + d; }
+			if(h.length < 2) { h = "0" + h; }
+			if(min.length < 2) { min = "0" + min; }
+			if(s.length < 2) { s = "0" + s}
+
+			var date = y + "-" + m + "-" + d;
+			var time = h + ":" + min + ":" + s;
+			return date + "T" + time + "Z";
+		}
+	
+		function handleDisplay(snapshot) {
+			console.log("function - handleDisplay");
+			snapshot.forEach(function(child) {
+				var data = child.val();
+				var newScoreRow = $("<tr>");
+				newScoreRow.append("<td>"+data["barcode"]+"</td>");
+				newScoreRow.append("<td id=titleFor"+data["barcode"]+ ">"+data["title"]+"</td>");
+				newScoreRow.append($("<td id=authorFor"+data["barcode"]+ ">"+data["author"]+"</td>"));
+				newScoreRow.append($("<td id=publishedFor"+data["barcode"]+ ">"+data["releaseDate"]+"</td>"));
+				newScoreRow.append($("<td id=publisherFor"+data["barcode"]+ ">"+data["publisher"]+"</td>"));
+				newScoreRow.append($("</tr>"));
+				$("#bdTekList").append(newScoreRow);
+				htmlForPath[snapshot.key()] = newScoreRow;
+				
+			});
+		  }
+
+		  $(document).ready( function() {
+			console.log("event - document ready");
+			myFirebaseRef.child("bd").on("value", function(snapshot) {
+				handleDisplay(snapshot); 
+			});
+			$('#btnImport').click(function importBarcodes() {
+				var separators = ["\n",";",","];
+				var lines = $('textarea').val().split(new RegExp(separators.join('|'), 'g')); 
+				for(var i = 0;i < lines.length;i++){
+					
+					var ean = lines[i];
+					if(!ean) return;
+					var yql = 'http://query.yahooapis.com/v1/public/yql?q=' + encodeURIComponent('select * from xml where url="' + getAmazonItemInfoURL(ean) + '"') + "&format=XML";
+					$.ajax({ 
+							 type: "GET",
+							 url: yql,
+							 dataType: "xml",
+							 crossDomain: true,
+							 success: function ( data,textStatus,jqXHR ) {
+											var bdRef = myFirebaseRef.child("bd");
+											var ean = $(data).find( "ItemAttributes" ).find( "EAN" ).text();
+											bdRef.child(ean).set({
+												barcode: ean,
+												title: $(data).find( "ItemAttributes" ).find( "Title" ).text(),
+												author: $(data).find( "ItemAttributes" ).find( "Author" ).text(),
+												drawer: "",
+												releaseDate: $(data).find( "ItemAttributes" ).find( "PublicationDate" ).text(),
+												publisher: $(data).find( "ItemAttributes" ).find( "Publisher" ).text(),
+												image:""
+											});
+							 },
+							 error: function ( jqXHR,textStatus,errorThrown ) {
+								 console.log(errorThrown );
+							 }
+					});	
+				}
+			});
+		});
+
+		function getAmazonItemInfoURL(barcode) {
+			var PrivateKey = "gdokE4dVBToLh3TmDCem/8rsa/XbffRLHAabTrXz";
+			var PublicKey = "AKIAIE7D4R7U7KC3I6EQ";
+			var AssociateTag = "syvo";
+
+			var parameters = [];
+			parameters.push("AWSAccessKeyId=" + PublicKey);
+			parameters.push("ItemId=" + barcode);
+			parameters.push("IdType=EAN");
+			parameters.push("SearchIndex=Books");
+			parameters.push("Operation=ItemLookup");
+			parameters.push("Service=AWSECommerceService");
+			parameters.push("Timestamp=" + encodeURIComponent(timestamp()));
+			parameters.push("Version=2011-08-01");
+			parameters.push("ResponseGroup=ItemAttributes");
+			parameters.push("AssociateTag=" + AssociateTag);
+
+			parameters.sort();
+			var paramString = parameters.join('&');
+
+			var signingKey = "GET\n" + "webservices.amazon.com\n" + "/onca/xml\n" + paramString;
+
+			var signature = sha256(signingKey,PrivateKey);
+				signature = encodeURIComponent(signature);
+
+			var amazonUrl =  "http://webservices.amazon.com/onca/xml?" + paramString + "&Signature=" + signature;
+			return amazonUrl;
+		}
+
+		</script>
+</head>
+<body>
+
+<!-- Start of first page -->
+<div data-role="page" id="listPage" data-theme="a">
+
+	<div data-role="header">
+		<h1 id="listPage_header">Liste</h1>
+        <a href="#importPage" data-wrapperels="span" data-mini="true" data-rel="page" data-icon="plus" data-iconpos="notext">Importer</a>
+	</div><!-- /header -->
+
+	<div role="main" class="ui-content">
+		<table data-role="table" data-mode="columntoggle" class="ui-responsive" id="bdTekList" name="bdTekList">
+		  <thead>
+			<tr>
+			  <th data-priority="6">Code barre</th>
+			  <th data-priority="1">Titre</th>
+			  <th data-priority="2">Auteurs</th>
+			  <th data-priority="3">Publication</th>
+			  <th data-priority="3">Editeur</th>
+			</tr>
+		  </thead>
+		  <tbody>
+		  </tbody>
+		</table>
+	</div><!-- /content -->
+
+	<div data-role="footer">
+		<h4>Page Footer</h4>
+	</div><!-- /footer -->
+</div><!-- /page -->
+
+<!-- Start of second page -->
+<div data-role="page" id="importPage" data-theme="a">
+    <header data-role="header">
+        <h1 id="importPage_header">Importer des BD</h1>
+        <a href="#listPage" data-wrapperels="span" data-mini="true" data-rel="page" data-icon="grid" data-iconpos="notext">Retour</a>
+    </header>
+
+	<div role="main" class="ui-content">
+		<label for="textarea">Textarea:</label>
+		<textarea cols="40" rows="8" name="textarea" id="textarea"></textarea>
+		<button class="ui-shadow ui-btn ui-corner-all" name="btnImport" id="btnImport">Import</button>
+	</div><!-- /content -->
+
+	<div data-role="footer">
+		<h4>Page Footer</h4>
+	</div><!-- /footer -->
+</div><!-- /page -->
+</body>
+</html>
