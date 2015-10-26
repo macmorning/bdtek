@@ -14,6 +14,7 @@
 		myFirebaseRef.onAuth(authDataCallback);
 		var authData = myFirebaseRef.getAuth();
 		var myUserID = "";
+		var myUserName = "";
 		var htmlForPath = {};
 		
 		if (!authData) {
@@ -23,18 +24,21 @@
 				console.log("Login Failed!", error);
 				showMessage("Erreur d'authentification via Firebase");
 			  } else {
-				console.log("Authenticated successfully with payload:", authData['uid']);
+				console.log("Authenticated successfully with payload:", authData.uid);
 			  }
 			});
 		} else {
-			myUserID = authData['uid'];
-			console.log("User : " + myUserID);
+			initAuthData(authData);
 		}
 
+		function initAuthData(authData) {
+			myUserID = authData.uid;
+			myUserName = authData.google.displayName;
+		}
 		
 		function authDataCallback(authData) {
 			if (authData) {
-				myUserID = authData['uid'];
+				initAuthData(authData);
 				console.log("User " + authData.uid + " is logged in with " + authData.provider);
 			} else {
 				console.log("User is logged out");
@@ -67,7 +71,6 @@
 		}
 	
 		function handleDisplay(snapshot) {
-			console.log("function - handleDisplay");
 			snapshot.forEach(function(child) {
 				var data = child.val();
 				var newScoreRow = $("<tr>");
@@ -84,13 +87,14 @@
 		  }
 
 		  $(document).ready( function() {
-			console.log("event - document ready");
+		  
 			myFirebaseRef.child("bd").on("value", function(snapshot) {
 				handleDisplay(snapshot); 
 			}, function(errorObj) {
 				console.log(errorObj.code);
 				showMessage("Erreur de récupération des données de Firebase : " + errorObj.code);
 			});
+			$("#dialog-modal").popup();
 			$('#btnImport').click(function importBarcodes() {
 				var separators = ["\n",";",","];
 				var lines = $('textarea').val().split(new RegExp(separators.join('|'), 'g')); 
@@ -120,7 +124,7 @@
 							 },
 							 error: function ( jqXHR,textStatus,errorThrown ) {
 								console.log(textStatus + " - " + errorThrown );
-								showMessage("Erreur de récupération informations d'Amazin via Yahoo Queries : " + textStatus);
+								showMessage("Erreur de récupération informations d'Amazon via Yahoo Queries : " + textStatus);
 							 }
 					});	
 				}
@@ -156,31 +160,8 @@
 			return amazonUrl;
 		}
 
-		function showMessage(message,type) {
-			$("#dialog-modal.message").text(message);
-/*			var buttons = {};
-			var type = type;
-			switch(type) {
-				case "ouinon" :
-					buttons = {
-						"Oui" : function() {
-							$(this).dialog("close");
-							return true;
-						},
-						"Non" : function() {
-							$(this).dialog("close");
-							return false;								
-						}
-					};
-					break;
-				default :
-					buttons = {
-						"OK" : function() {
-							$(this).dialog("close");
-							return true;
-						}
-					};
-			}*/
+		function showMessage(message) {
+			$("#dialog-message").text(message);
 			$("#dialog-modal").popup("open");
 		}
 
@@ -188,11 +169,7 @@
 </head>
 <body>
 
-	<div data-role="popup" id="dialog-modal" class="ui-content">
-		<span id="dialog-modal.message"></span>
-		<button id="boardpage_quitYes" onclick="leaveGame();$.mobile.changePage($('#mainpage'));">yes</button>
-		<button id="boardpage_quitNo" onclick="$('#boardpage_popupConfirmQuit').popup('close');">no</button>
-	</div>
+
 <!-- Start of first page -->
 <div data-role="page" id="listPage" data-theme="a">
 	<div data-role="header">
@@ -200,8 +177,12 @@
         <a href="#importPage" data-wrapperels="span" data-mini="true" data-rel="page" data-icon="plus" data-iconpos="notext">Importer</a>
 	</div><!-- /header -->
 
+	<div data-role="popup" id="dialog-modal" class="ui-content">
+		<a href="#" data-rel="back" data-role="button" data-theme="a" data-icon="delete" data-iconpos="notext"  class="ui-btn-right">Close</a>
+		<p id="dialog-message"></p>
+	</div>
 	<div role="main" class="ui-content">
-		<table data-role="table" data-mini="true" class="ui-responsive" id="bdTekList" name="bdTekList">
+		<table data-role="table" data-mini="true" class="ui-responsive" id="bdTekList">
 		  <thead>
 			<tr>
 			  <th data-priority="6">Code barre</th>
