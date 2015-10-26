@@ -21,17 +21,20 @@
 			myFirebaseRef.authWithOAuthPopup("google", function(error, authData) {
 			  if (error) {
 				console.log("Login Failed!", error);
+				showMessage("Erreur d'authentification via Firebase");
 			  } else {
 				console.log("Authenticated successfully with payload:", authData['uid']);
 			  }
 			});
+		} else {
+			myUserID = authData['uid'];
+			console.log("User : " + myUserID);
 		}
-		myUserID = authData['uid'];
-		console.log("User : " + myUserID);
 
 		
 		function authDataCallback(authData) {
 			if (authData) {
+				myUserID = authData['uid'];
 				console.log("User " + authData.uid + " is logged in with " + authData.provider);
 			} else {
 				console.log("User is logged out");
@@ -84,6 +87,9 @@
 			console.log("event - document ready");
 			myFirebaseRef.child("bd").on("value", function(snapshot) {
 				handleDisplay(snapshot); 
+			}, function(errorObj) {
+				console.log(errorObj.code);
+				showMessage("Erreur de récupération des données de Firebase : " + errorObj.code);
 			});
 			$('#btnImport').click(function importBarcodes() {
 				var separators = ["\n",";",","];
@@ -98,6 +104,7 @@
 							 url: yql,
 							 dataType: "xml",
 							 crossDomain: true,
+							 timeout: 5000,
 							 success: function ( data,textStatus,jqXHR ) {
 											var bdRef = myFirebaseRef.child("bd");
 											var ean = $(data).find( "ItemAttributes" ).find( "EAN" ).text();
@@ -112,7 +119,8 @@
 											});
 							 },
 							 error: function ( jqXHR,textStatus,errorThrown ) {
-								 console.log(errorThrown );
+								console.log(textStatus + " - " + errorThrown );
+								showMessage("Erreur de récupération informations d'Amazin via Yahoo Queries : " + textStatus);
 							 }
 					});	
 				}
@@ -148,6 +156,42 @@
 			return amazonUrl;
 		}
 
+		function showMessage(message,type) {
+			$("#dialog-modal.message").text(message);
+			var buttons = {};
+			var type = type;
+			if (type) {
+				switch(type) {
+					case "ouinon" :
+						buttons = {
+							"Oui" : function() {
+								$(this).dialog("close");
+								return true;
+							},
+							"Non" : function() {
+								$(this).dialog("close");
+								return false;								
+							}
+						};
+						break;
+					default :
+						buttons = {
+							"OK" : function() {
+								$(this).dialog("close");
+								return true;
+							}
+						}
+				}
+			}
+			$("#dialog-modal").dialog({
+				resizable: false,
+				height: 140,
+				modal: true,
+				position: 'center',
+				buttons: buttons
+			});
+		}
+
 		</script>
 </head>
 <body>
@@ -155,6 +199,11 @@
 <!-- Start of first page -->
 <div data-role="page" id="listPage" data-theme="a">
 
+	<div data-role="popup" id="dialog-modal" class="ui-content">
+		<span id="dialog-modal.message"></span>
+		<button id="boardpage_quitYes" onclick="leaveGame();$.mobile.changePage($('#mainpage'));">yes</button>
+		<button id="boardpage_quitNo" onclick="$('#boardpage_popupConfirmQuit').popup('close');">no</button>
+	</div>
 	<div data-role="header">
 		<h1 id="listPage_header">Liste</h1>
         <a href="#importPage" data-wrapperels="span" data-mini="true" data-rel="page" data-icon="plus" data-iconpos="notext">Importer</a>
@@ -176,9 +225,6 @@
 		</table>
 	</div><!-- /content -->
 
-	<div data-role="footer">
-		<h4>Page Footer</h4>
-	</div><!-- /footer -->
 </div><!-- /page -->
 
 <!-- Start of second page -->
@@ -194,9 +240,6 @@
 		<button class="ui-shadow ui-btn ui-corner-all" name="btnImport" id="btnImport">Import</button>
 	</div><!-- /content -->
 
-	<div data-role="footer">
-		<h4>Page Footer</h4>
-	</div><!-- /footer -->
 </div><!-- /page -->
 </body>
 </html>
