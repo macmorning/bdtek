@@ -158,52 +158,43 @@
 
 		function showMessage(message,type) {
 			$("#dialog-modal.message").text(message);
-			var buttons = {};
+/*			var buttons = {};
 			var type = type;
-			if (type) {
-				switch(type) {
-					case "ouinon" :
-						buttons = {
-							"Oui" : function() {
-								$(this).dialog("close");
-								return true;
-							},
-							"Non" : function() {
-								$(this).dialog("close");
-								return false;								
-							}
-						};
-						break;
-					default :
-						buttons = {
-							"OK" : function() {
-								$(this).dialog("close");
-								return true;
-							}
+			switch(type) {
+				case "ouinon" :
+					buttons = {
+						"Oui" : function() {
+							$(this).dialog("close");
+							return true;
+						},
+						"Non" : function() {
+							$(this).dialog("close");
+							return false;								
 						}
-				}
-			}
-			$("#dialog-modal").dialog({
-				resizable: false,
-				height: 140,
-				modal: true,
-				position: 'center',
-				buttons: buttons
-			});
+					};
+					break;
+				default :
+					buttons = {
+						"OK" : function() {
+							$(this).dialog("close");
+							return true;
+						}
+					};
+			}*/
+			$("#dialog-modal").popup("open");
 		}
 
 		</script>
 </head>
 <body>
 
-<!-- Start of first page -->
-<div data-role="page" id="listPage" data-theme="a">
-
 	<div data-role="popup" id="dialog-modal" class="ui-content">
 		<span id="dialog-modal.message"></span>
 		<button id="boardpage_quitYes" onclick="leaveGame();$.mobile.changePage($('#mainpage'));">yes</button>
 		<button id="boardpage_quitNo" onclick="$('#boardpage_popupConfirmQuit').popup('close');">no</button>
 	</div>
+<!-- Start of first page -->
+<div data-role="page" id="listPage" data-theme="a">
 	<div data-role="header">
 		<h1 id="listPage_header">Liste</h1>
         <a href="#importPage" data-wrapperels="span" data-mini="true" data-rel="page" data-icon="plus" data-iconpos="notext">Importer</a>
