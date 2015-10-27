@@ -1,39 +1,33 @@
 <!DOCTYPE html>
 <html>
 <head>
+	<meta charset="UTF-8">
 	<title>BD Tek</title>
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-    <script src="lib/firebase/firebase.js"></script>
-	<link rel="stylesheet" href="lib/jquery/jquery.mobile-1.4.5.min.css" />
-	<script src="lib/jquery/jquery-2.1.4.min.js"></script>
-	<script src="lib/jquery/jquery.mobile-1.4.5.min.js"></script>
-	<script src="lib/hmac-sha256.js"></script>
-	<script src="lib/enc-base64-min.js"></script>  
+	<link rel="stylesheet" href="http://ajax.googleapis.com/ajax/libs/jquerymobile/1.4.5/jquery.mobile.min.css"/>
+	<script src="http://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"></script>
+	<script src="http://ajax.googleapis.com/ajax/libs/jquerymobile/1.4.5/jquery.mobile.js"></script>
+    <script src="http://cdn.firebase.com/js/client/2.3.0/firebase.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.2/rollups/hmac-sha256.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/3.1.2/components/enc-base64-min.js"></script>  
 	<script src="conf.js"></script>
 	<script>
-		myFirebaseRef.onAuth(authDataCallback);
-		var authData = myFirebaseRef.getAuth();
+		myFirebaseRef.onAuth(authDataCallback); // Initialize the Firebase DB; make sure you wrote your conf.js based on conf_template.js
+		var authData = myFirebaseRef.getAuth(); // Check authentification status
 		var myUserID = "";
 		var myUserName = "";
 		var htmlForPath = {};
-		
-		if (!authData) {
-			console.log("User is not logged in, poping up !");
-			myFirebaseRef.authWithOAuthPopup("google", function(error, authData) {
-			  if (error) {
-				console.log("Login Failed!", error);
-				showMessage("Erreur d'authentification via Firebase");
-			  } else {
-				console.log("Authenticated successfully with payload:", authData.uid);
-			  }
-			});
-		} else {
-			initAuthData(authData);
-		}
-
 		function initAuthData(authData) {
 			myUserID = authData.uid;
 			myUserName = authData.google.displayName;
+			$("#listPage_header").text("Liste de " + myUserName);
+		}
+		
+		function logout() {
+			myUserID = "";
+			myUserName = "";
+			myFirebaseRef.unauth();
+			location.reload();
 		}
 		
 		function authDataCallback(authData) {
@@ -70,7 +64,7 @@
 			return date + "T" + time + "Z";
 		}
 	
-		function handleDisplay(snapshot) {
+		function handleDisplay(snapshot) {	// add the rows to the list
 			snapshot.forEach(function(child) {
 				var data = child.val();
 				var newScoreRow = $("<tr>");
@@ -86,14 +80,30 @@
 			});
 		  }
 
-		  $(document).ready( function() {
 		  
+		  $(document).ready( function() {
+			
+			if (!authData) { // if user is not authentified, open the auth popup
+				console.log("User is not logged in, poping up !");
+				myFirebaseRef.authWithOAuthPopup("google", function(error, authData) {
+				  if (error) {
+					console.log("Login Failed!", error);
+					showMessage("Erreur d'authentification via Firebase");
+				  } else {
+					console.log("Authenticated successfully with payload:", authData.uid);
+				  }
+				});
+			} else {
+				initAuthData(authData);
+			}
+
 			myFirebaseRef.child("bd").on("value", function(snapshot) {
-				handleDisplay(snapshot); 
-			}, function(errorObj) {
-				console.log(errorObj.code);
-				showMessage("Erreur de récupération des données de Firebase : " + errorObj.code);
-			});
+					handleDisplay(snapshot); 
+				}, function(errorObj) {
+					console.log(errorObj.code);
+					showMessage("Erreur de récupération des données de Firebase : " + errorObj.code);
+				});
+
 			$("#dialog-modal").popup();
 			$('#btnImport').click(function importBarcodes() {
 				var separators = ["\n",";",","];
@@ -116,7 +126,6 @@
 												barcode: ean,
 												title: $(data).find( "ItemAttributes" ).find( "Title" ).text(),
 												author: $(data).find( "ItemAttributes" ).find( "Author" ).text(),
-												drawer: "",
 												releaseDate: $(data).find( "ItemAttributes" ).find( "PublicationDate" ).text(),
 												publisher: $(data).find( "ItemAttributes" ).find( "Publisher" ).text(),
 												link: $(data).find( "Item" ).find( "DetailPageURL" ).text()
@@ -132,12 +141,9 @@
 		});
 
 		function getAmazonItemInfoURL(barcode) {
-			var PrivateKey = "gdokE4dVBToLh3TmDCem/8rsa/XbffRLHAabTrXz";
-			var PublicKey = "AKIAIE7D4R7U7KC3I6EQ";
-			var AssociateTag = "syvo";
 
 			var parameters = [];
-			parameters.push("AWSAccessKeyId=" + PublicKey);
+			parameters.push("AWSAccessKeyId=" + AWSAccessKeyId);
 			parameters.push("ItemId=" + barcode);
 			parameters.push("IdType=EAN");
 			parameters.push("SearchIndex=Books");
@@ -153,7 +159,7 @@
 
 			var signingKey = "GET\n" + "webservices.amazon.fr\n" + "/onca/xml\n" + paramString;
 
-			var signature = sha256(signingKey,PrivateKey);
+			var signature = sha256(signingKey,AWSSecretKey);
 				signature = encodeURIComponent(signature);
 
 			var amazonUrl =  "http://webservices.amazon.fr/onca/xml?" + paramString + "&Signature=" + signature;
@@ -173,12 +179,13 @@
 <!-- Start of first page -->
 <div data-role="page" id="listPage" data-theme="a">
 	<div data-role="header">
-		<h1 id="listPage_header">Liste</h1>
+		<h1 id="listPage_header">Connexion...</h1>
         <a href="#importPage" data-wrapperels="span" data-mini="true" data-rel="page" data-icon="plus" data-iconpos="notext">Importer</a>
+        <a href="#" onclick="logout();" data-wrapperels="span" data-mini="true" data-rel="page" data-icon="delete" data-iconpos="notext">Déconnexion</a>
 	</div><!-- /header -->
 
 	<div data-role="popup" id="dialog-modal" class="ui-content">
-		<a href="#" data-rel="back" data-role="button" data-theme="a" data-icon="delete" data-iconpos="notext"  class="ui-btn-right">Close</a>
+		<a href="#" data-rel="back" data-role="button" data-theme="a" data-icon="delete" data-iconpos="notext"  class="ui-btn-right">Fermer</a>
 		<p id="dialog-message"></p>
 	</div>
 	<div role="main" class="ui-content">
